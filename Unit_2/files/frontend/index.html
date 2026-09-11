@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post Desk — REST API & Request Tracing Console</title>
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Modular Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">P</div>
+      <div>
+        <div class="brand-title">Post Desk Console</div>
+        <div class="brand-subtitle">Experiment 2.1.1 & 2.1.2 — REST API & Request Tracing</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="cors-badge" title="CORS Enabled: Access-Control-Allow-Origin *">
+        <span>🌐</span> CORS Allowed (*)
+      </div>
+
+      <div class="status-badge">
+        <span class="status-dot checking" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+
+      <div class="api-input-group">
+        <label for="apiBase">BASE URL</label>
+        <input id="apiBase" value="http://localhost:8080" spellcheck="false">
+      </div>
+
+      <button class="btn btn-secondary btn-sm" id="archModalBtn">Architecture</button>
+      <button class="btn btn-secondary btn-sm" id="pingBtn">Ping</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Form Column -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title" id="formTitle">New Scheduled Post</div>
+        <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim);"
+          id="editingIdBadge"></span>
+      </div>
+
+      <div class="banner" id="formBanner"></div>
+
+      <form id="postForm" onsubmit="return false;">
+        <div class="form-group">
+          <label class="form-label" for="title">Title</label>
+          <input class="form-input" id="title" maxlength="120" placeholder="e.g. Q3 Product Roadmap Announcement">
+          <div class="field-error" id="err-title"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="content">Content</label>
+          <textarea class="form-textarea" id="content" placeholder="Enter post content..."></textarea>
+          <div class="field-error" id="err-content"></div>
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="scheduledAt" style="margin-bottom:0;">Scheduled Date & Time</label>
+            <button type="button" class="btn btn-secondary btn-sm" id="presetDateBtn"
+              style="padding: 2px 6px; font-size: 10px;">+1 Day Preset</button>
+          </div>
+          <input class="form-input" id="scheduledAt" type="datetime-local">
+          <div class="field-error" id="err-scheduledAt"></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" id="submitBtn" type="submit">Create Post</button>
+          <button class="btn btn-secondary" id="cancelEditBtn" type="button" style="display: none;">Cancel Edit</button>
+        </div>
+      </form>
+
+      <div class="test-triggers">
+        <div class="test-triggers-title">Global Exception & Validation Tests (@ControllerAdvice)</div>
+        <div class="trigger-grid">
+          <button class="btn btn-secondary btn-sm" id="trigger400Btn">Trigger 400 Validation</button>
+          <button class="btn btn-secondary btn-sm" id="trigger404Btn">Trigger 404 Not Found</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Posts Column -->
+    <section style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="workspace-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <h2 style="font-size: 18px; font-weight: 700;">Posts Repository</h2>
+          <span class="badge badge-SCHEDULED" id="postCountBadge">0 Posts</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <select class="filter-select" id="statusFilter">
+            <option value="ALL">All Statuses</option>
+            <option value="SCHEDULED">Scheduled Only</option>
+            <option value="PUBLISHED">Published Only</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+
+      <div id="postsList" class="post-grid"></div>
+    </section>
+
+    <!-- Live Request-Response Envelope & Structured Error Inspector -->
+    <section class="card diagnostics-panel">
+      <div class="card-header">
+        <div class="card-title" style="color: var(--accent-cyan); font-family: var(--font-mono);">
+          <span>📩</span> Live Request-Response Envelope & Structured Error Inspector
+        </div>
+        <div id="inspectorAdviceBadge" style="display: none;" class="advice-tag">
+          @ControllerAdvice Caught Exception
+        </div>
+      </div>
+
+      <div class="inspector-meta" id="inspectorMeta">
+        <span class="meta-pill">Method: <strong id="inspMethod">—</strong></span>
+        <span class="meta-pill">Endpoint: <strong id="inspEndpoint">—</strong></span>
+        <span class="meta-pill">Status: <strong id="inspStatus">—</strong></span>
+        <span class="meta-pill">MDC Correlation ID: <strong id="inspCorrId"
+            style="color: var(--accent-cyan);">—</strong></span>
+        <span class="meta-pill">Latency: <strong id="inspLatency">—</strong></span>
+        <span class="meta-pill" style="color: var(--accent-emerald);">CORS Origin: <strong>*</strong></span>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <div
+          style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase;">
+          Raw Standardized Response Envelope (ApiResponse&lt;T&gt;):
+        </div>
+        <pre class="json-viewer"
+          id="jsonViewer">Select or execute an API request to view raw JSON envelope output...</pre>
+      </div>
+    </section>
+
+    <!-- MDC Correlation Tracing Drawer -->
+    <section class="card diagnostics-panel">
+      <div class="card-header">
+        <div class="card-title" style="color: var(--accent-indigo); font-family: var(--font-mono);">
+          <span>⚡</span> MDC Correlation ID & Request Lifecycle Tracing Log
+        </div>
+        <button class="btn btn-secondary btn-sm" id="clearLogsBtn">Clear Traces</button>
+      </div>
+
+      <div class="log-table-container">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Method</th>
+              <th>Endpoint Path</th>
+              <th>Status</th>
+              <th>Latency</th>
+              <th>X-Correlation-Id (MDC Traced)</th>
+            </tr>
+          </thead>
+          <tbody id="traceLogsBody">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 20px;">No requests logged yet.
+                Trigger an API call to observe correlation IDs.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Architecture Spec Modal -->
+  <div class="modal-overlay" id="archModal">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--accent-cyan);">Backend Architecture & Design Spec
+        </h3>
+        <button class="btn btn-secondary btn-sm" id="closeArchModal">✕ Close</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px;">Demonstrates Spring Boot 3.3 Layered Architecture & Request
+        Lifecycle:</p>
+
+      <div class="arch-flow">
+        <div class="arch-step">
+          1. <strong>HTTP Client Request</strong> ➔ Injects <code>X-Correlation-Id</code> header
+        </div>
+        <div class="arch-step">
+          2. <strong>CorrelationIdFilter & MDC</strong> ➔ Puts correlation ID into org.slf4j.MDC
+        </div>
+        <div class="arch-step">
+          3. <strong>CorsConfig Filter</strong> ➔ Evaluates <code>Access-Control-Allow-Origin: *</code>
+        </div>
+        <div class="arch-step">
+          4. <strong>PostController (@RestController)</strong> ➔ Receives DTO & applies Bean Validation
+        </div>
+        <div class="arch-step">
+          5. <strong>GlobalExceptionHandler (@RestControllerAdvice)</strong> ➔ Intercepts exceptions & returns
+          standardized <code>ApiResponse&lt;T&gt;</code> envelope
+        </div>
+        <div class="arch-step">
+          6. <strong>PostRepository (Spring Data JPA)</strong> ➔ Persistence layer for entities
+        </div>
+      </div>
+
+      <div style="text-align: right; margin-top: 18px;">
+        <button class="btn btn-primary btn-sm" id="closeArchModal2">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modular Application Logic -->
+  <script src="app.js" defer></script>
+</body>
+
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "post-desk-backend",
+  "version": "1.0.0",
+  "description": "Post Desk REST API Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["backend", "rest-api", "node", "express"],
+  "license": "ISC"
+}

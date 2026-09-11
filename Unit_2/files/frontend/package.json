@@ -1,0 +1,12 @@
+{
+  "name": "post-desk-frontend",
+  "version": "1.0.0",
+  "description": "Post Desk Console - Web Console UI",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 5500",
+    "dev": "python -m http.server 5500"
+  },
+  "keywords": ["frontend", "ui", "console"],
+  "license": "ISC"
+}
