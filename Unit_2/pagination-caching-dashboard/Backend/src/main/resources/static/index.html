@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Library Dashboard — Pagination, Sorting & Caching Explorer</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand-logo">
+        <span class="pulse-dot"></span>
+        <svg class="brand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </div>
+      <div>
+        <h1 class="brand-title">Library Intelligence Dashboard</h1>
+        <p class="brand-subtitle">Paginated REST APIs &bull; Ehcache L2 &bull; Query Optimization</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="serverStatus" class="status-pill status-checking">
+        <span class="status-indicator"></span>
+        <span class="status-text">Checking Server...</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- Top KPI Summary Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-purple">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <div class="kpi-data">
+          <span class="kpi-label">Total Books</span>
+          <span class="kpi-value" id="kpiTotalBooks">1,200</span>
+          <span class="kpi-subtext">Auto-seeded database records</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-blue">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="kpi-data">
+          <span class="kpi-label">Total Authors</span>
+          <span class="kpi-value" id="kpiTotalAuthors">60</span>
+          <span class="kpi-subtext">Linked relational authors</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-emerald">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="kpi-data">
+          <span class="kpi-label">Query Efficiency</span>
+          <span class="kpi-value text-emerald">90% Reduction</span>
+          <span class="kpi-subtext">2 SQL statements vs 19 naive</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon-wrap icon-amber">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="kpi-data">
+          <span class="kpi-label">Ehcache Speed</span>
+          <span class="kpi-value text-amber">&lt; 1 ms</span>
+          <span class="kpi-subtext">Instant heap cache hits</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tabBooks">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Book Catalog</span>
+      </button>
+
+      <button class="tab-btn" data-tab="tabAuthors">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Authors Directory</span>
+      </button>
+
+      <button class="tab-btn" data-tab="tabPerformance">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Performance &amp; Cache Lab</span>
+      </button>
+
+      <button class="tab-btn" data-tab="tabExpensive">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>High-Value Books</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: BOOK CATALOG -->
+    <main id="tabBooks" class="tab-content active">
+      <section class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="searchInput" placeholder="Search books by title or author..." />
+          </div>
+
+          <div class="filter-group">
+            <label class="select-label">
+              <span>Genre</span>
+              <select id="genreFilterSelect">
+                <option value="">All Genres</option>
+                <option value="Popularity">Popularity</option>
+                <option value="Fantasy">Fantasy</option>
+                <option value="Fiction">Fiction</option>
+                <option value="Non-Fiction">Non-Fiction</option>
+                <option value="Romance">Romance</option>
+                <option value="Self-Help">Self-Help</option>
+                <option value="Science Fiction">Science Fiction</option>
+                <option value="Biography">Biography</option>
+                <option value="History">History</option>
+                <option value="Technology">Technology</option>
+                <option value="Mystery">Mystery</option>
+              </select>
+            </label>
+
+            <label class="select-label">
+              <span>Mode</span>
+              <select id="modeSelect">
+                <option value="">⚡ Fast Mode (JOIN FETCH + Cache)</option>
+                <option value="naive">🐢 Standard Mode (N+1 Queries)</option>
+              </select>
+            </label>
+
+            <label class="select-label">
+              <span>Items per page</span>
+              <select id="sizeSelect">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+
+            <button id="refreshBtn" class="btn btn-primary" title="Refresh Table">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id">ID <span class="sort-icon" id="sort-id">↕</span></th>
+                <th class="sortable" data-sort="title">Title <span class="sort-icon" id="sort-title">↕</span></th>
+                <th class="sortable" data-sort="genre">Genre <span class="sort-icon" id="sort-genre">↕</span></th>
+                <th class="sortable" data-sort="publishedYear">Year <span class="sort-icon" id="sort-publishedYear">↕</span></th>
+                <th class="sortable" data-sort="price">Price <span class="sort-icon" id="sort-price">↕</span></th>
+                <th class="sortable" data-sort="popularity">Popularity <span class="sort-icon" id="sort-popularity">↕</span></th>
+                <th>Author</th>
+                <th>Author Country</th>
+              </tr>
+            </thead>
+            <tbody id="booksTbody">
+              <tr><td colspan="8" class="loading-cell">Loading books data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-bar">
+          <div class="pager-controls">
+            <button id="prevBtn" class="btn btn-secondary">&larr; Previous</button>
+            <span id="pageInfo" class="page-info-text">Page 1 of 1</span>
+            <button id="nextBtn" class="btn btn-secondary">Next &rarr;</button>
+          </div>
+          <div class="pager-meta">
+            <span id="lastFetchTime" class="fetch-badge">Fetched in -- ms</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: AUTHORS DIRECTORY -->
+    <main id="tabAuthors" class="tab-content">
+      <section class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="authorSearchInput" placeholder="Filter authors by name or country..." />
+          </div>
+
+          <div class="filter-group">
+            <button id="authorRefreshBtn" class="btn btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable-author" data-sort="id">ID <span class="sort-icon" id="author-sort-id">↕</span></th>
+                <th class="sortable-author" data-sort="name">Author Name <span class="sort-icon" id="author-sort-name">↕</span></th>
+                <th class="sortable-author" data-sort="country">Country <span class="sort-icon" id="author-sort-country">↕</span></th>
+                <th>Books Count</th>
+              </tr>
+            </thead>
+            <tbody id="authorsTbody">
+              <tr><td colspan="4" class="loading-cell">Loading authors data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-bar">
+          <div class="pager-controls">
+            <button id="authorPrevBtn" class="btn btn-secondary">&larr; Previous</button>
+            <span id="authorPageInfo" class="page-info-text">Page 1 of 1</span>
+            <button id="authorNextBtn" class="btn btn-secondary">Next &rarr;</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 3: PERFORMANCE & CACHE LAB -->
+    <main id="tabPerformance" class="tab-content">
+      <div class="grid-2">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Database Query Benchmark</h2>
+              <p class="card-subtitle">Comparing N+1 query problem vs. <code>JOIN FETCH</code> optimization</p>
+            </div>
+            <button id="benchmarkBtn" class="btn btn-accent">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Run Benchmark</span>
+            </button>
+          </div>
+
+          <div class="info-box">
+            <p><strong>What is N+1?</strong> Fetching 20 books individually executes 1 query for books + 19 queries to load author details (total 20 queries). <strong>JOIN FETCH</strong> retrieves all books and authors in <strong>1 single SQL query</strong>.</p>
+          </div>
+
+          <div id="benchmarkResults" class="benchmark-container">
+            <div class="empty-state">Click <strong>"Run Benchmark"</strong> to test database performance live.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Ehcache In-Memory Speed Test</h2>
+              <p class="card-subtitle">Demonstrates Spring `@Cacheable` heap memory caching</p>
+            </div>
+            <button id="clearCacheBtn" class="btn btn-danger-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Clear Cache</span>
+            </button>
+          </div>
+
+          <div class="info-box">
+            <p><strong>How Ehcache Works:</strong> Call 1 hits the H2 database and stores the result in JVM memory. Call 2 returns instantly from Ehcache memory without executing any SQL.</p>
+          </div>
+
+          <div class="action-row">
+            <button id="cacheTestBtn" class="btn btn-primary btn-block">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+              <span>Test Cache Speed (Run Dual Fetch)</span>
+            </button>
+          </div>
+
+          <div id="cacheResults" class="cache-timeline">
+            <div class="empty-state">Click <strong>"Test Cache Speed"</strong> to observe Cache Miss vs Cache Hit timing.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- TAB 4: HIGH-VALUE BOOKS -->
+    <main id="tabExpensive" class="tab-content">
+      <section class="card">
+        <div class="toolbar">
+          <div class="price-filter-box">
+            <label for="maxPriceInput">Maximum Price ($):</label>
+            <input type="number" id="maxPriceInput" value="50" min="0" max="100" step="5" />
+            <button id="filterExpensiveBtn" class="btn btn-primary">Apply Price Filter</button>
+          </div>
+
+          <div class="native-sql-badge">
+            <span>Powered by Native SQL Query</span>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Genre</th>
+                <th>Year</th>
+                <th>Price</th>
+                <th>Author</th>
+                <th>Author Country</th>
+              </tr>
+            </thead>
+            <tbody id="expensiveTbody">
+              <tr><td colspan="7" class="loading-cell">Loading high-value books...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-bar">
+          <div class="pager-controls">
+            <button id="expPrevBtn" class="btn btn-secondary">&larr; Previous</button>
+            <span id="expPageInfo" class="page-info-text">Page 1 of 1</span>
+            <button id="expNextBtn" class="btn btn-secondary">Next &rarr;</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Built with Spring Boot 3 &bull; Spring Data JPA &bull; Ehcache 3 &bull; H2 In-Memory DB</p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
