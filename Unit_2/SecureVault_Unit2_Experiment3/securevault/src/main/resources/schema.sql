@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS app_users (
+ id VARCHAR(36) PRIMARY KEY, email VARCHAR(160) NOT NULL UNIQUE,
+ display_name VARCHAR(80) NOT NULL, password_hash VARCHAR(100) NOT NULL,
+ role VARCHAR(10) NOT NULL CHECK(role IN ('ADMIN','USER')), created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS credentials (
+ id VARCHAR(36) PRIMARY KEY, owner_id VARCHAR(36) NOT NULL REFERENCES app_users(id),
+ provider VARCHAR(80) NOT NULL, label VARCHAR(100) NOT NULL,
+ encrypted_value VARCHAR(16000) NOT NULL, created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+ token_hash VARCHAR(64) PRIMARY KEY, owner_id VARCHAR(36) NOT NULL REFERENCES app_users(id),
+ family_id VARCHAR(36) NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL,
+ used BOOLEAN NOT NULL DEFAULT FALSE, revoked BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS refresh_owner ON refresh_tokens(owner_id);
+CREATE INDEX IF NOT EXISTS refresh_family ON refresh_tokens(family_id);
+CREATE TABLE IF NOT EXISTS audit_events (
+ id VARCHAR(36) PRIMARY KEY, actor VARCHAR(160) NOT NULL,
+ action VARCHAR(80) NOT NULL, detail VARCHAR(180) NOT NULL, created_at BIGINT NOT NULL
+);
