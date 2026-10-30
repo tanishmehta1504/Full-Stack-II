@@ -1,0 +1,7 @@
+target/
+.data/
+.env
+*.log
+socialflow.jar
+frontend/node_modules/
+frontend/coverage/

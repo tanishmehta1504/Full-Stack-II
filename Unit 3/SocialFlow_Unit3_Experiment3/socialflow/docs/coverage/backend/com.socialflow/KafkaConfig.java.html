@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KafkaConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">socialflow</a> &gt; <a href="index.source.html" class="el_package">com.socialflow</a> &gt; <span class="el_source">KafkaConfig.java</span></div><h1>KafkaConfig.java</h1><pre class="source lang-java linenums">package com.socialflow;
+
+import java.time.Duration;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.*;
+import org.springframework.kafka.config.*;
+import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.*;
+import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
+
+@Configuration
+<span class="fc" id="L14">public class KafkaConfig {</span>
+
+  @Bean
+  NewTopic posts() {
+<span class="fc" id="L18">    return TopicBuilder.name(&quot;socialflow.posts&quot;)</span>
+<span class="fc" id="L19">      .partitions(3)</span>
+<span class="fc" id="L20">      .replicas(1)</span>
+<span class="fc" id="L21">      .build();</span>
+  }
+
+  @Bean
+  NewTopic dlq() {
+<span class="fc" id="L26">    return TopicBuilder.name(&quot;socialflow.posts.dlq&quot;)</span>
+<span class="fc" id="L27">      .partitions(3)</span>
+<span class="fc" id="L28">      .replicas(1)</span>
+<span class="fc" id="L29">      .build();</span>
+  }
+
+  @Bean
+  ConcurrentKafkaListenerContainerFactory&lt;
+    String,
+    String
+  &gt; kafkaListenerContainerFactory(
+    ConsumerFactory&lt;String, String&gt; cf,
+    KafkaTemplate&lt;String, String&gt; template,
+    @Value(&quot;${app.retry-ms}&quot;) long delay
+  ) {
+<span class="fc" id="L41">    var r = new DeadLetterPublishingRecoverer(template, (record, e) -&gt;</span>
+<span class="fc" id="L42">      new TopicPartition(&quot;socialflow.posts.dlq&quot;, record.partition())</span>
+    );
+<span class="fc" id="L44">    r.setFailIfSendResultIsError(true);</span>
+<span class="fc" id="L45">    r.setWaitForSendResultTimeout(Duration.ofSeconds(10));</span>
+<span class="fc" id="L46">    var b = new ExponentialBackOffWithMaxRetries(3);</span>
+<span class="fc" id="L47">    b.setInitialInterval(delay);</span>
+<span class="fc" id="L48">    b.setMultiplier(2);</span>
+<span class="fc" id="L49">    b.setMaxInterval(delay * 4);</span>
+<span class="fc" id="L50">    var h = new DefaultErrorHandler(r, b);</span>
+<span class="fc" id="L51">    h.addNotRetryableExceptions(IllegalArgumentException.class);</span>
+<span class="fc" id="L52">    var f = new ConcurrentKafkaListenerContainerFactory&lt;String, String&gt;();</span>
+<span class="fc" id="L53">    f.setConsumerFactory(cf);</span>
+<span class="fc" id="L54">    f.setCommonErrorHandler(h);</span>
+<span class="fc" id="L55">    f.setConcurrency(3);</span>
+<span class="fc" id="L56">    f.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);</span>
+<span class="fc" id="L57">    return f;</span>
+  }
+
+  @Bean
+  ConcurrentKafkaListenerContainerFactory&lt;String, String&gt; dlqFactory(
+    ConsumerFactory&lt;String, String&gt; cf
+  ) {
+<span class="fc" id="L64">    var f = new ConcurrentKafkaListenerContainerFactory&lt;String, String&gt;();</span>
+<span class="fc" id="L65">    f.setConsumerFactory(cf);</span>
+<span class="fc" id="L66">    f.setCommonErrorHandler(</span>
+      new DefaultErrorHandler(
+        new org.springframework.util.backoff.FixedBackOff(1000, Long.MAX_VALUE)
+      )
+    );
+<span class="fc" id="L71">    f.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);</span>
+<span class="fc" id="L72">    return f;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,67 @@
+name: socialflow
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: socialflow
+      POSTGRES_USER: socialflow
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-socialflow-local-only}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U socialflow -d socialflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  kafka:
+    image: apache/kafka:4.1.2
+    hostname: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka-data:/tmp
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+  app:
+    image: ${APP_IMAGE:-socialflow:local}
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/socialflow
+      DB_USER: socialflow
+      DB_PASSWORD: ${DB_PASSWORD:-socialflow-local-only}
+      KAFKA_SERVERS: kafka:9092
+      DEMO_MODE: ${DEMO_MODE:-true}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@12345}
+      JWT_SECRET: ${JWT_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - app-data:/app/.data
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  kafka-data:
+  app-data:

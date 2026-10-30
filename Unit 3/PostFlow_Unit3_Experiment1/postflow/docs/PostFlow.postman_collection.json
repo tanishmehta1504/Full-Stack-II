@@ -1,0 +1,239 @@
+{
+  "info": {
+    "name": "PostFlow \u2014 Unit 3 Experiment 1",
+    "description": "Run interactively. Wait for PUBLISHED before duplicate; wait for DLQ before replay. Processing is asynchronous.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "eventId",
+      "value": ""
+    },
+    {
+      "key": "failedId",
+      "value": ""
+    },
+    {
+      "key": "dlqId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Snapshot",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/snapshot"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Create temporary-failure event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Lab-Request",
+            "value": "postflow"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/events",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Postman retry demo\",\n  \"content\": \"Fail twice, then publish once.\",\n  \"channel\": \"LinkedIn\",\n  \"failureMode\": \"TRANSIENT\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 202\", () => pm.response.to.have.status(202));",
+              "pm.collectionVariables.set(\"eventId\",pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Inspect event (wait until PUBLISHED)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/events/{{eventId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Send duplicate (only after PUBLISHED)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Lab-Request",
+            "value": "postflow"
+          }
+        ],
+        "url": "{{baseUrl}}/api/events/{{eventId}}/duplicate"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 202\", () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Inspect duplicate counter",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/events/{{eventId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Create permanent-failure event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Lab-Request",
+            "value": "postflow"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/events",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Postman DLQ demo\",\n  \"content\": \"Recover me from the dead-letter queue.\",\n  \"channel\": \"X\",\n  \"failureMode\": \"ALWAYS\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 202\", () => pm.response.to.have.status(202));",
+              "pm.collectionVariables.set(\"failedId\",pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Inspect DLQ snapshot (wait until DLQ)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/snapshot"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const dead=pm.response.json().deadLetters.find(d=>d.event_id===pm.collectionVariables.get(\"failedId\")&&!d.replayed);",
+              "if(dead)pm.collectionVariables.set(\"dlqId\",dead.id);",
+              "pm.test(\"Failed event has reached DLQ; repeat this request if still processing\",()=>pm.expect(dead).to.exist);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Replay dead letter",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Lab-Request",
+            "value": "postflow"
+          }
+        ],
+        "url": "{{baseUrl}}/api/dead-letters/{{dlqId}}/replay"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 202\", () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Inspect replayed event",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/events/{{failedId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

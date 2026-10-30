@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Api.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">socialflow</a> &gt; <a href="index.source.html" class="el_package">com.socialflow</a> &gt; <span class="el_source">Api.java</span></div><h1>Api.java</h1><pre class="source lang-java linenums">package com.socialflow;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+@RestController
+@RequestMapping(&quot;/api&quot;)
+@SecurityRequirement(name = &quot;bearerAuth&quot;)
+public class Api {
+
+  final Workspace w;
+  final Security security;
+  final BCryptPasswordEncoder passwords;
+
+<span class="fc" id="L23">  public Api(Workspace w, Security security, BCryptPasswordEncoder passwords) {</span>
+<span class="fc" id="L24">    this.w = w;</span>
+<span class="fc" id="L25">    this.security = security;</span>
+<span class="fc" id="L26">    this.passwords = passwords;</span>
+<span class="fc" id="L27">  }</span>
+
+<span class="fc" id="L29">  record Login(</span>
+    @NotBlank @Email String email,
+    @NotBlank @Size(max = 72) String password
+  ) {}
+
+<span class="fc" id="L34">  record Draft(</span>
+    @NotBlank @Size(max = 120) String title,
+    @NotBlank @Size(max = 2800) String content,
+    @NotBlank String channel
+  ) {}
+
+<span class="fc" id="L40">  record Schedule(@Min(0) long dueAt, boolean failDemo) {}</span>
+
+<span class="fc" id="L42">  record Comment(@NotBlank @Size(max = 800) String body) {}</span>
+
+<span class="fc" id="L44">  record Member(</span>
+    @NotBlank @Size(max = 80) String name,
+    @Email @NotBlank @Size(max = 160) String email,
+    @Size(min = 10, max = 72) @NotBlank String password,
+    @Pattern(regexp = &quot;EDITOR|VIEWER&quot;) @NotBlank String role
+  ) {}
+
+  @GetMapping(&quot;/health&quot;)
+  public Map&lt;String, String&gt; health() {
+<span class="fc" id="L53">    w.database().queryForObject(&quot;SELECT 1&quot;, Integer.class);</span>
+<span class="fc" id="L54">    return Map.of(&quot;status&quot;, &quot;UP&quot;);</span>
+  }
+
+  @PostMapping(&quot;/login&quot;)
+  public Map&lt;String, Object&gt; login(@Valid @RequestBody Login input) {
+<span class="fc" id="L59">    var list = w.rows(</span>
+      &quot;SELECT * FROM members WHERE email=? AND active=TRUE&quot;,
+<span class="fc" id="L61">      input.email().toLowerCase(Locale.ROOT)</span>
+    );
+<span class="fc" id="L63">    if (</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">      list.isEmpty() ||</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">      !passwords.matches(input.password(), (String) list.get(0).get(&quot;password&quot;))</span>
+<span class="fc" id="L66">    ) throw new ResponseStatusException(</span>
+      HttpStatus.UNAUTHORIZED,
+      &quot;Invalid email or password&quot;
+    );
+<span class="fc" id="L70">    var u = list.get(0);</span>
+<span class="fc" id="L71">    return Map.of(</span>
+      &quot;token&quot;,
+<span class="fc" id="L73">      security.token((String) u.get(&quot;id&quot;)),</span>
+      &quot;user&quot;,
+<span class="fc" id="L75">      w.member((String) u.get(&quot;id&quot;))</span>
+    );
+  }
+
+  @GetMapping(&quot;/me&quot;)
+  public Map&lt;String, Object&gt; me(Authentication a) {
+<span class="fc" id="L81">    return w.member(a.getName());</span>
+  }
+
+  @GetMapping(&quot;/workspace&quot;)
+  public Map&lt;String, Object&gt; snapshot() {
+<span class="fc" id="L86">    return w.snapshot();</span>
+  }
+
+  @PostMapping(&quot;/posts&quot;)
+  @PreAuthorize(&quot;hasAnyRole('ADMIN','EDITOR')&quot;)
+  public Map&lt;String, String&gt; create(
+    Authentication a,
+    @Valid @RequestBody Draft d
+  ) {
+<span class="fc" id="L95">    return Map.of(</span>
+      &quot;id&quot;,
+<span class="fc" id="L97">      w.save(null, a.getName(), d.title(), d.content(), d.channel())</span>
+    );
+  }
+
+  @PutMapping(&quot;/posts/{id}&quot;)
+  @PreAuthorize(&quot;hasAnyRole('ADMIN','EDITOR')&quot;)
+  public Map&lt;String, String&gt; edit(
+    @PathVariable String id,
+    Authentication a,
+    @Valid @RequestBody Draft d
+  ) {
+<span class="fc" id="L108">    return Map.of(</span>
+      &quot;id&quot;,
+<span class="fc" id="L110">      w.save(id, a.getName(), d.title(), d.content(), d.channel())</span>
+    );
+  }
+
+  @PostMapping(&quot;/posts/{id}/schedule&quot;)
+  @PreAuthorize(&quot;hasAnyRole('ADMIN','EDITOR')&quot;)
+  public Map&lt;String, String&gt; schedule(
+    @PathVariable String id,
+    Authentication a,
+    @Valid @RequestBody Schedule s
+  ) {
+<span class="fc" id="L121">    w.schedule(id, a.getName(), s.dueAt(), s.failDemo());</span>
+<span class="fc" id="L122">    return Map.of(&quot;status&quot;, &quot;SCHEDULED&quot;);</span>
+  }
+
+  @PostMapping(&quot;/posts/{id}/cancel&quot;)
+  @PreAuthorize(&quot;hasAnyRole('ADMIN','EDITOR')&quot;)
+  public Map&lt;String, String&gt; cancel(@PathVariable String id, Authentication a) {
+<span class="fc" id="L128">    w.cancel(id, a.getName());</span>
+<span class="fc" id="L129">    return Map.of(&quot;status&quot;, &quot;DRAFT&quot;);</span>
+  }
+
+  @GetMapping(&quot;/posts/{id}/comments&quot;)
+  public List&lt;Map&lt;String, Object&gt;&gt; comments(@PathVariable String id) {
+<span class="fc" id="L134">    w.one(&quot;SELECT id FROM posts WHERE id=?&quot;, id);</span>
+<span class="fc" id="L135">    return w.rows(</span>
+      &quot;SELECT c.*,m.name AS author FROM comments c JOIN members m ON c.author_id=m.id WHERE post_id=? ORDER BY created_at&quot;,
+      id
+    );
+  }
+
+  @PostMapping(&quot;/posts/{id}/comments&quot;)
+  @PreAuthorize(&quot;hasAnyRole('ADMIN','EDITOR')&quot;)
+  public Map&lt;String, String&gt; comment(
+    @PathVariable String id,
+    Authentication a,
+    @Valid @RequestBody Comment c
+  ) {
+<span class="fc" id="L148">    w.one(&quot;SELECT id FROM posts WHERE id=?&quot;, id);</span>
+<span class="fc" id="L149">    w</span>
+<span class="fc" id="L150">      .database()</span>
+<span class="fc" id="L151">      .update(</span>
+        &quot;INSERT INTO comments VALUES(?,?,?,?,?)&quot;,
+<span class="fc" id="L153">        UUID.randomUUID().toString(),</span>
+        id,
+<span class="fc" id="L155">        a.getName(),</span>
+<span class="fc" id="L156">        c.body().trim(),</span>
+<span class="fc" id="L157">        System.currentTimeMillis()</span>
+      );
+<span class="fc" id="L159">    return Map.of(&quot;status&quot;, &quot;ADDED&quot;);</span>
+  }
+
+  @GetMapping(&quot;/members&quot;)
+  public List&lt;Map&lt;String, Object&gt;&gt; members() {
+<span class="fc" id="L164">    return w.rows(</span>
+      &quot;SELECT id,name,email,role,active FROM members ORDER BY name&quot;
+    );
+  }
+
+  @PostMapping(&quot;/members&quot;)
+  @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+  public Map&lt;String, String&gt; member(@Valid @RequestBody Member m) {
+<span class="fc" id="L172">    String id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L173">    w</span>
+<span class="fc" id="L174">      .database()</span>
+<span class="fc" id="L175">      .update(</span>
+        &quot;INSERT INTO members VALUES(?,?,?,?,?,TRUE)&quot;,
+        id,
+<span class="fc" id="L178">        m.name().trim(),</span>
+<span class="fc" id="L179">        m.email().toLowerCase(Locale.ROOT),</span>
+<span class="fc" id="L180">        passwords.encode(m.password()),</span>
+<span class="fc" id="L181">        m.role()</span>
+      );
+<span class="fc" id="L183">    w.audit(&quot;Team member added: &quot; + m.name());</span>
+<span class="fc" id="L184">    return Map.of(&quot;id&quot;, id);</span>
+  }
+
+  @PostMapping(&quot;/members/{id}/toggle&quot;)
+  @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+  public Map&lt;String, String&gt; toggle(@PathVariable String id) {
+<span class="fc" id="L190">    var m = w.member(id);</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">    if (m.get(&quot;role&quot;).equals(&quot;ADMIN&quot;)) throw new ResponseStatusException(</span>
+      HttpStatus.CONFLICT,
+      &quot;The bootstrap admin cannot be disabled&quot;
+    );
+<span class="fc" id="L195">    w</span>
+<span class="fc" id="L196">      .database()</span>
+<span class="fc" id="L197">      .update(</span>
+        &quot;UPDATE members SET active=? WHERE id=?&quot;,
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        !Boolean.TRUE.equals(m.get(&quot;active&quot;)),</span>
+        id
+      );
+<span class="fc" id="L202">    return Map.of(&quot;status&quot;, &quot;UPDATED&quot;);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

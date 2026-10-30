@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Workspace.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">socialflow</a> &gt; <a href="index.source.html" class="el_package">com.socialflow</a> &gt; <span class="el_source">Workspace.java</span></div><h1>Workspace.java</h1><pre class="source lang-java linenums">package com.socialflow;
+
+import static org.springframework.http.HttpStatus.*;
+
+import java.util.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class Workspace {
+
+  final JdbcTemplate db;
+
+<span class="fc" id="L16">  public Workspace(JdbcTemplate db) {</span>
+<span class="fc" id="L17">    this.db = db;</span>
+<span class="fc" id="L18">  }</span>
+
+  public JdbcTemplate database() {
+<span class="fc" id="L21">    return db;</span>
+  }
+
+  public Map&lt;String, Object&gt; member(String id) {
+<span class="fc" id="L25">    return one(&quot;SELECT id,name,email,role,active FROM members WHERE id=?&quot;, id);</span>
+  }
+
+  public Map&lt;String, Object&gt; one(String sql, Object... args) {
+<span class="fc" id="L29">    var rows = rows(sql, args);</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">    if (rows.isEmpty()) throw new ResponseStatusException(</span>
+      NOT_FOUND,
+      &quot;Record not found&quot;
+    );
+<span class="fc" id="L34">    return rows.get(0);</span>
+  }
+
+  public List&lt;Map&lt;String, Object&gt;&gt; rows(String sql, Object... args) {
+<span class="fc" id="L38">    return db</span>
+<span class="fc" id="L39">      .queryForList(sql, args)</span>
+<span class="fc" id="L40">      .stream()</span>
+<span class="fc" id="L41">      .map(m -&gt; {</span>
+<span class="fc" id="L42">        Map&lt;String, Object&gt; n = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L43">        m.forEach((k, v) -&gt; n.put(k.toLowerCase(Locale.ROOT), v));</span>
+<span class="fc" id="L44">        return n;</span>
+      })
+<span class="fc" id="L46">      .toList();</span>
+  }
+
+  public void audit(String msg) {
+<span class="fc" id="L50">    db.update(</span>
+      &quot;INSERT INTO audit VALUES(?,?,?)&quot;,
+<span class="fc" id="L52">      UUID.randomUUID().toString(),</span>
+      msg,
+<span class="fc" id="L54">      System.currentTimeMillis()</span>
+    );
+<span class="fc" id="L56">  }</span>
+
+  public Map&lt;String, Object&gt; locked(String id, String actor) {
+<span class="fc" id="L59">    var p = one(&quot;SELECT * FROM posts WHERE id=? FOR UPDATE&quot;, id);</span>
+<span class="fc" id="L60">    if (</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">      !member(actor).get(&quot;role&quot;).equals(&quot;ADMIN&quot;) &amp;&amp;</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">      !p.get(&quot;owner_id&quot;).equals(actor)</span>
+<span class="fc" id="L63">    ) throw new ResponseStatusException(</span>
+      FORBIDDEN,
+      &quot;Only the author or admin can change this post&quot;
+    );
+<span class="fc" id="L67">    return p;</span>
+  }
+
+  @Transactional
+  public String save(
+    String id,
+    String actor,
+    String title,
+    String content,
+    String channel
+  ) {
+<span class="fc" id="L78">    if (</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">      !Set.of(&quot;Demo LinkedIn&quot;, &quot;Demo Instagram&quot;, &quot;Demo X&quot;).contains(channel)</span>
+<span class="fc" id="L80">    ) throw new ResponseStatusException(BAD_REQUEST, &quot;Choose a demo channel&quot;);</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">    if (id == null) {</span>
+<span class="fc" id="L82">      id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L83">      db.update(</span>
+        &quot;INSERT INTO posts(id,owner_id,title,content,channel,status,due_at,created_at) VALUES(?,?,?,?,?,'DRAFT',0,?)&quot;,
+        id,
+        actor,
+<span class="fc" id="L87">        title.trim(),</span>
+<span class="fc" id="L88">        content.trim(),</span>
+        channel,
+<span class="fc" id="L90">        System.currentTimeMillis()</span>
+      );
+    } else {
+<span class="fc" id="L93">      var p = locked(id, actor);</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">      if (!p.get(&quot;status&quot;).equals(&quot;DRAFT&quot;)) throw new ResponseStatusException(</span>
+        CONFLICT,
+        &quot;Only drafts can be edited&quot;
+      );
+<span class="fc" id="L98">      db.update(</span>
+        &quot;UPDATE posts SET title=?,content=?,channel=? WHERE id=?&quot;,
+<span class="fc" id="L100">        title.trim(),</span>
+<span class="fc" id="L101">        content.trim(),</span>
+        channel,
+        id
+      );
+    }
+<span class="fc" id="L106">    audit(&quot;Draft saved: &quot; + title.trim());</span>
+<span class="fc" id="L107">    return id;</span>
+  }
+
+  @Transactional
+  public void schedule(String id, String actor, long due, boolean fail) {
+<span class="fc" id="L112">    var p = locked(id, actor);</span>
+<span class="fc" id="L113">    if (</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">      !Set.of(&quot;DRAFT&quot;, &quot;FAILED&quot;).contains(p.get(&quot;status&quot;))</span>
+<span class="fc" id="L115">    ) throw new ResponseStatusException(</span>
+      CONFLICT,
+      &quot;Post is already queued or published&quot;
+    );
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">    if (due &lt; 0) throw new ResponseStatusException(</span>
+      BAD_REQUEST,
+      &quot;Invalid schedule&quot;
+    );
+<span class="fc bfc" id="L123" title="All 2 branches covered.">    if (</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">      fail &amp;&amp; !member(actor).get(&quot;role&quot;).equals(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L125">    ) throw new ResponseStatusException(</span>
+      FORBIDDEN,
+      &quot;Failure injection requires admin&quot;
+    );
+<span class="fc" id="L129">    int generation = ((Number) p.get(&quot;generation&quot;)).intValue() + 1;</span>
+<span class="fc" id="L130">    db.update(</span>
+      &quot;UPDATE posts SET status='SCHEDULED',due_at=?,generation=?,fail_demo=? WHERE id=?&quot;,
+<span class="fc" id="L132">      Math.max(due, System.currentTimeMillis()),</span>
+<span class="fc" id="L133">      generation,</span>
+<span class="fc" id="L134">      fail,</span>
+      id
+    );
+<span class="fc" id="L137">    db.update(</span>
+      &quot;INSERT INTO outbox(id,post_id,due_at,sent) VALUES(?,?,?,FALSE)&quot;,
+      id + &quot;:&quot; + generation,
+      id,
+<span class="fc" id="L141">      Math.max(due, System.currentTimeMillis())</span>
+    );
+<span class="fc" id="L143">    audit(&quot;Post queued: &quot; + p.get(&quot;title&quot;));</span>
+<span class="fc" id="L144">  }</span>
+
+  @Transactional
+  public void cancel(String id, String actor) {
+<span class="fc" id="L148">    var p = locked(id, actor);</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">    if (!p.get(&quot;status&quot;).equals(&quot;SCHEDULED&quot;)) throw new ResponseStatusException(</span>
+      CONFLICT,
+      &quot;Only scheduled posts can be cancelled&quot;
+    );
+<span class="fc" id="L153">    db.update(</span>
+      &quot;UPDATE posts SET status='DRAFT',generation=generation+1,due_at=0 WHERE id=?&quot;,
+      id
+    );
+<span class="fc" id="L157">    db.update(&quot;UPDATE outbox SET sent=TRUE WHERE post_id=?&quot;, id);</span>
+<span class="fc" id="L158">    audit(&quot;Schedule cancelled: &quot; + p.get(&quot;title&quot;));</span>
+<span class="fc" id="L159">  }</span>
+
+  @Transactional
+  public void publish(String event) {
+<span class="fc" id="L163">    var bits = event.split(&quot;:&quot;);</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">    if (bits.length != 2) throw new IllegalArgumentException(&quot;Malformed event&quot;);</span>
+<span class="fc" id="L165">    int generation = Integer.parseInt(bits[1]);</span>
+<span class="fc" id="L166">    var found = rows(&quot;SELECT * FROM posts WHERE id=? FOR UPDATE&quot;, bits[0]);</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">    if (found.isEmpty()) return;</span>
+<span class="fc" id="L168">    var p = found.get(0);</span>
+<span class="fc" id="L169">    if (</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">      !p.get(&quot;status&quot;).equals(&quot;SCHEDULED&quot;) ||</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">      ((Number) p.get(&quot;generation&quot;)).intValue() != generation</span>
+<span class="fc" id="L172">    ) return;</span>
+<span class="fc" id="L173">    if (</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">      Boolean.TRUE.equals(p.get(&quot;fail_demo&quot;))</span>
+<span class="fc" id="L175">    ) throw new IllegalStateException(&quot;Injected demo publisher failure&quot;);</span>
+<span class="fc" id="L176">    long now = System.currentTimeMillis();</span>
+<span class="fc" id="L177">    if (</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">      ((Number) p.get(&quot;due_at&quot;)).longValue() &gt; now</span>
+<span class="fc" id="L179">    ) throw new IllegalStateException(&quot;Post not due&quot;);</span>
+<span class="fc" id="L180">    db.update(</span>
+      &quot;INSERT INTO publications VALUES(?,?,?)&quot;,
+      bits[0],
+<span class="fc" id="L183">      now,</span>
+<span class="fc" id="L184">      p.get(&quot;content&quot;)</span>
+    );
+<span class="fc" id="L186">    db.update(</span>
+      &quot;UPDATE posts SET status='PUBLISHED',published_at=? WHERE id=?&quot;,
+<span class="fc" id="L188">      now,</span>
+      bits[0]
+    );
+<span class="fc" id="L191">    audit(&quot;Published to demo feed: &quot; + p.get(&quot;title&quot;));</span>
+<span class="fc" id="L192">  }</span>
+
+  @Transactional
+  public void failed(String event) {
+<span class="fc" id="L196">    var bits = event.split(&quot;:&quot;);</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">    if (bits.length != 2) return;</span>
+    try {
+<span class="fc" id="L199">      int g = Integer.parseInt(bits[1]);</span>
+<span class="fc" id="L200">      int n = db.update(</span>
+        &quot;UPDATE posts SET status='FAILED' WHERE id=? AND generation=? AND status='SCHEDULED'&quot;,
+        bits[0],
+<span class="fc" id="L203">        g</span>
+      );
+<span class="fc bfc" id="L205" title="All 2 branches covered.">      if (n &gt; 0) audit(&quot;Retry limit reached. Post moved to failed queue.&quot;);</span>
+<span class="fc" id="L206">    } catch (NumberFormatException ignored) {}</span>
+<span class="fc" id="L207">  }</span>
+
+  public Map&lt;String, Object&gt; snapshot() {
+<span class="fc" id="L210">    return Map.of(</span>
+      &quot;posts&quot;,
+<span class="fc" id="L212">      rows(</span>
+        &quot;SELECT p.*,m.name AS author FROM posts p JOIN members m ON p.owner_id=m.id ORDER BY p.created_at DESC LIMIT 500&quot;
+      ),
+      &quot;activity&quot;,
+<span class="fc" id="L216">      rows(&quot;SELECT * FROM audit ORDER BY created_at DESC LIMIT 30&quot;),</span>
+      &quot;counts&quot;,
+<span class="fc" id="L218">      rows(&quot;SELECT status,COUNT(*) AS total FROM posts GROUP BY status&quot;),</span>
+      &quot;daily&quot;,
+<span class="fc" id="L220">      rows(</span>
+        &quot;SELECT published_at FROM publications WHERE published_at&gt;?&quot;,
+<span class="fc" id="L222">        System.currentTimeMillis() - 7L * 86400000</span>
+      ),
+      &quot;publisher&quot;,
+      &quot;DEMO — publications stay inside this workspace&quot;
+    );
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

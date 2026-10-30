@@ -1,0 +1,57 @@
+name: releasepilot
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: releasepilot
+      POSTGRES_USER: releasepilot
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-classroom-local-only}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U releasepilot -d releasepilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  stable:
+    image: ${STABLE_IMAGE:-releasepilot:local}
+    environment:
+      APP_TRACK: stable
+      APP_VERSION: ${STABLE_VERSION:-1.0.0-stable}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/releasepilot
+      DATABASE_USER: releasepilot
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-classroom-local-only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+  canary:
+    image: ${CANARY_IMAGE:-releasepilot:local}
+    environment:
+      APP_TRACK: canary
+      APP_VERSION: ${CANARY_VERSION:-1.1.0-candidate}
+      APP_FAIL_QUOTES: ${CANARY_FAIL_QUOTES:-false}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/releasepilot
+      DATABASE_USER: releasepilot
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-classroom-local-only}
+    depends_on:
+      stable:
+        condition: service_healthy
+  gateway:
+    image: ${GATEWAY_IMAGE:-releasepilot:local}
+    ports:
+      - "127.0.0.1:8082:8080"
+    environment:
+      APP_TRACK: gateway
+      APP_VERSION: ${GATEWAY_VERSION:-1.0.0-control}
+      STABLE_URL: http://stable:8080
+      CANARY_URL: http://canary:8080
+    volumes:
+      - gateway-data:/app/.data
+    depends_on:
+      stable:
+        condition: service_healthy
+      canary:
+        condition: service_healthy
+volumes:
+  postgres-data:
+  gateway-data:

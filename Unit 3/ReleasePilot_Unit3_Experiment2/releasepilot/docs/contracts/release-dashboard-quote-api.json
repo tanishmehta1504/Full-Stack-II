@@ -1,0 +1,43 @@
+{
+  "consumer": {
+    "name": "release-dashboard"
+  },
+  "interactions": [
+    {
+      "description": "the dashboard requests a two-item quote",
+      "request": {
+        "method": "GET",
+        "path": "/api/quote",
+        "query": {
+          "quantity": [
+            "2"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "currency": "INR",
+          "quantity": 2,
+          "sku": "LAB-KIT",
+          "total": 998,
+          "unitPrice": 499
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.6.17"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "quote-api"
+  }
+}

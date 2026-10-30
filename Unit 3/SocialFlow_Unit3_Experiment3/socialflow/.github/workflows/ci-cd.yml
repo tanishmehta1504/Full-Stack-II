@@ -1,0 +1,121 @@
+name: SocialFlow CI and CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: socialflow-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: socialflow
+          POSTGRES_USER: socialflow
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U socialflow" --health-interval 5s --health-retries 20
+    env:
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/socialflow
+      DB_USER: socialflow
+      DB_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - run: npm ci && npm test && npm run build
+        working-directory: frontend
+      - run: mvn -B clean verify
+      - run: cp target/socialflow-1.0.0.jar socialflow.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-app
+          path: socialflow.jar
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-and-coverage-reports
+          path: |
+            target/site/jacoco
+            target/surefire-reports
+            frontend/coverage
+  docker-smoke:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-app
+      - run: docker build -t socialflow:local . && docker compose up -d --wait --wait-timeout 240
+      - run: python3 scripts/smoke.py
+      - run: docker compose logs --no-color > compose.log
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-logs
+          path: compose.log
+      - run: docker compose down -v
+        if: always()
+  image:
+    needs: [test, docker-smoke]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image-name.outputs.name }}@${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-app
+      - id: image-name
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image-name.outputs.name }}:${{ github.sha }}
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_CD == 'true'
+    runs-on: [self-hosted, linux, socialflow-deploy]
+    environment: socialflow-lab
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: bash scripts/deploy.sh
+        env:
+          APP_IMAGE: ${{ needs.image.outputs.image }}

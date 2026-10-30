@@ -1,0 +1,7 @@
+target/
+.data/
+releasepilot.jar
+*.log
+.env
+deployment.json
+src/main/resources/build-evidence.json

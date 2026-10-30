@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in — ReleasePilot</title>
+  <link rel="icon" href="/favicon.svg">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-deep:  #152e22;
+      --green-mid:   #1c3d2c;
+      --green-light: #225847;
+      --mint:        #b5e4bf;
+      --mint-pale:   #e8f6eb;
+      --ink:         #1a2e24;
+      --muted:       #6b8272;
+      --line:        #d6e5da;
+      --error:       #b96e68;
+      --error-bg:    #fff5f4;
+      --error-bdr:   #f3d9d6;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--green-deep);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* animated background blobs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: .25;
+      animation: drift 12s ease-in-out infinite alternate;
+    }
+    body::before {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, #2d7a52, transparent 70%);
+      top: -150px; left: -150px;
+    }
+    body::after {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #1e5c3d, transparent 70%);
+      bottom: -120px; right: -120px;
+      animation-delay: -6s;
+    }
+
+    @keyframes drift {
+      0%   { transform: translate(0, 0)   scale(1); }
+      100% { transform: translate(40px, 30px) scale(1.08); }
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      margin: 20px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      padding: 48px 44px 44px;
+      backdrop-filter: blur(24px);
+      box-shadow: 0 32px 80px rgba(0,0,0,.40), 0 0 0 1px rgba(255,255,255,.04);
+      animation: slideUp .5s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 36px;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--mint);
+      color: var(--green-deep);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .brand-text strong {
+      display: block;
+      font-size: 17px;
+      font-weight: 650;
+      color: #d8ead2;
+      letter-spacing: -.4px;
+    }
+    .brand-text small {
+      font-size: 10px;
+      color: #6a8e74;
+      letter-spacing: .3px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 600;
+      color: #e4f0de;
+      letter-spacing: -.6px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #6a8e74;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .field { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .8px;
+      color: #7a9a80;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 15px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 9px;
+      color: #d4e8d0;
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+      outline: none;
+    }
+    input[type="text"]::placeholder,
+    input[type="password"]::placeholder { color: #4d7059; }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: rgba(181,228,191,.35);
+      background: rgba(255,255,255,.09);
+      box-shadow: 0 0 0 3px rgba(181,228,191,.08);
+    }
+    input.invalid {
+      border-color: rgba(185,110,104,.5) !important;
+      background: rgba(185,110,104,.06) !important;
+    }
+
+    .password-wrap { position: relative; }
+    .toggle-pw {
+      position: absolute;
+      right: 13px; top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #5a7a60;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 4px;
+      line-height: 1;
+      transition: color .15s;
+    }
+    .toggle-pw:hover { color: #a0c0a0; }
+
+    .error-msg {
+      display: none;
+      background: rgba(185,110,104,.12);
+      border: 1px solid rgba(185,110,104,.25);
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 11px;
+      color: #e0908a;
+      margin-bottom: 20px;
+      align-items: center;
+      gap: 8px;
+    }
+    .error-msg.visible { display: flex; animation: shake .35s ease; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-5px); }
+      60%      { transform: translateX(5px); }
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: var(--mint);
+      color: var(--green-deep);
+      border: none;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 650;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 16px rgba(181,228,191,.18);
+      margin-top: 8px;
+    }
+    .btn-login:hover:not(:disabled) {
+      background: #cdf0d5;
+      box-shadow: 0 6px 22px rgba(181,228,191,.28);
+    }
+    .btn-login:active:not(:disabled) { transform: scale(.98); }
+    .btn-login:disabled { opacity: .6; cursor: wait; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(26,46,36,.3);
+      border-top-color: var(--green-deep);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    .btn-login.loading .spinner { display: block; }
+    .btn-login.loading .btn-label { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hint {
+      margin-top: 28px;
+      padding-top: 22px;
+      border-top: 1px solid rgba(255,255,255,.07);
+      font-size: 10px;
+      color: #4e6b54;
+      text-align: center;
+      line-height: 1.8;
+    }
+    .hint code {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #8ab890;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="logo">↗</div>
+      <div class="brand-text">
+        <strong>ReleasePilot</strong>
+        <small>Unit 3 · Experiment 2</small>
+      </div>
+    </div>
+
+    <h1>Welcome back</h1>
+    <p class="subtitle">Sign in to access your delivery workspace.</p>
+
+    <div class="error-msg" id="error-msg" role="alert">
+      <span>⚠</span>
+      <span id="error-text">Invalid username or password.</span>
+    </div>
+
+    <form id="login-form" autocomplete="on" novalidate>
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="password-wrap">
+          <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+          <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Toggle password visibility">👁</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login" id="btn-login">
+        <div class="spinner"></div>
+        <span class="btn-label">Sign in →</span>
+      </button>
+    </form>
+
+    <div class="hint">
+      Demo credentials&nbsp;&nbsp;·&nbsp;&nbsp;
+      username: <code>admin</code>&nbsp;&nbsp;
+      password: <code>pilot123</code>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const form     = document.getElementById('login-form');
+    const userInp  = document.getElementById('username');
+    const passInp  = document.getElementById('password');
+    const btn      = document.getElementById('btn-login');
+    const errBox   = document.getElementById('error-msg');
+    const errText  = document.getElementById('error-text');
+    const togglePw = document.getElementById('toggle-pw');
+
+    togglePw.addEventListener('click', () => {
+      const show = passInp.type === 'password';
+      passInp.type = show ? 'text' : 'password';
+      togglePw.textContent = show ? '🙈' : '👁';
+    });
+
+    function showError(msg) {
+      errText.textContent = msg;
+      errBox.classList.remove('visible');
+      // force reflow to restart animation
+      void errBox.offsetWidth;
+      errBox.classList.add('visible');
+      [userInp, passInp].forEach(i => i.classList.add('invalid'));
+    }
+
+    function clearError() {
+      errBox.classList.remove('visible');
+      [userInp, passInp].forEach(i => i.classList.remove('invalid'));
+    }
+
+    [userInp, passInp].forEach(inp => inp.addEventListener('input', clearError));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = userInp.value.trim();
+      const password = passInp.value;
+
+      if (!username || !password) {
+        showError('Please enter both username and password.');
+        return;
+      }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+      clearError();
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          // Mark logged in via sessionStorage and redirect
+          sessionStorage.setItem('rp_auth', '1');
+          sessionStorage.setItem('rp_user', username);
+          const dest = new URLSearchParams(location.search).get('next') || '/';
+          window.location.href = dest;
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showError(data.message || 'Invalid credentials. Please try again.');
+          passInp.value = '';
+          passInp.focus();
+        }
+      } catch {
+        showError('Cannot reach the server. Make sure the app is running.');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    });
+
+    // If already logged in, go straight to dashboard
+    if (sessionStorage.getItem('rp_auth') === '1') {
+      window.location.replace('/');
+    }
+  </script>
+</body>
+</html>
